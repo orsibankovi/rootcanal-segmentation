@@ -6,7 +6,7 @@ from os import listdir
 import numpy as np
 
 class GetDataset(Dataset):
-    def __init__(self, input_path: str, s: int = 128):
+    def __init__(self, input_path: str, s: int = 256):
         self.rootdir = input_path
         self.inputfiles = []
         self.targetfiles = []
@@ -43,7 +43,7 @@ class GetDataset(Dataset):
         for subfolder in subfolders:
             input_ = self.rootdir + '/' + subfolder + '/original.tiff'
             target_ = self.rootdir + '/' + subfolder + '/inverse.tiff'
-            volume_, mask_ = self.preprocessing(input_, target_, subfolder)
+            volume_, mask_ = self.preprocessing(input_, target_)
             self.inputfiles += volume_
             self.targetfiles += mask_
      
@@ -54,8 +54,3 @@ class GetDataset(Dataset):
     
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         return self.inputfiles[idx], self.targetfiles[idx]
-    
-    
-if __name__ == '__main__':
-    datasset = GetDataset('C:/Users/orsolya.bankovi/Documents/Uni/rootcanal_segmatch/rootcanal_segmatch/segmentation')
-    datasset.load_images()
