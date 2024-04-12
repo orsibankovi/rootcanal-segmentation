@@ -6,23 +6,27 @@ import numpy as np
 from torch import Tensor
 
 def tf_fn_draw(output: Tensor, target: Tensor) -> Image:
-    target = target > 0 
+    output = output > 0.5
+    target = target > 0
+    
+    img = np.zeros((output.shape[1], output.shape[2], 3))
 
-    ima = np.zeros((output.shape[1], output.shape[2], 3))
+    if torch.max(output) == 0 and torch.max(target) == 0:
+        PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
+        return PIL_image
 
     for i in range(target.shape[1]):
         for j in range(target.shape[2]):
             if target[0, i, j] == 0 and output[0, i, j] == 1:
-                ima[i, j, 0] = 255
+                img[i, j, 0] = 255
             elif target[0, i, j] == 1 and output[0, i, j] == 0:
-                ima[i, j, 1] = 255
+                img[i, j, 1] = 255
             elif target[0, i, j] == 1 and output[0, i, j] == 1:
-                ima[i, j, :] = 255
+                img[i, j, :] = 255
             else:
-                ima[i, j, :] = 0
+                img[i, j, :] = 0
 
-    PIL_image = Image.fromarray(ima.astype('uint8'), 'RGB')
-
+    PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
     return PIL_image
 
 
@@ -61,9 +65,9 @@ def centers_of_canals(output_tensor: Tensor, target_tensor: Tensor) -> float:
 def find_min_dist(output_x: list, target_x: list, output_y: list, target_y: list) -> float:
     distances = []
     shorter_x = min(output_x, target_x, key=len)
-    longer_x = max(output_x, target_x, key=len)
+    longer_x = output_x if shorter_x == target_x else target_x
     shorter_y = min(output_y, target_y, key=len)
-    longer_y = max(output_y, target_y, key=len)
+    longer_y = output_y if shorter_y == target_y else target_y
 
     for i in range(len(shorter_x)):
         min_difference = -1

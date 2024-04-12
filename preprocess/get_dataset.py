@@ -21,7 +21,7 @@ class GetDataset(Dataset):
     def create_batch(self, image_list: list) -> torch.Tensor:
         for i, img in enumerate(image_list):
             image_list[i] = self.resize_image(img)
-        return torch.tensor(np.stack(image_list, axis=0), dtype=torch.float32)
+        return torch.tensor(np.stack(image_list, axis=0), dtype=torch.uint8)
 
 
     def preprocessing(self, volume_array_path: str, target_array_path: str) -> tuple[list, list]:
@@ -30,11 +30,12 @@ class GetDataset(Dataset):
         inputs = []
         targets = []
         for z, image in enumerate(volume_array):
-            if z != 0 and z != volume_array.shape[0] - 1:
-                batch = self.create_batch([volume_array[z-1], volume_array[z], volume_array[z+1]]) / 255
-                inputs.append(batch)
-                target = cv2.resize(target_array[z], (self.s, self.s), interpolation=cv2.INTER_NEAREST) / 255
-                targets.append(torch.tensor(np.expand_dims(target, axis=0), dtype=torch.float32))
+            if np.max(image) != 0 or z % 3 == 0:
+                if z != 0 and z != volume_array.shape[0] - 1:
+                    batch = self.create_batch([volume_array[z-1], volume_array[z], volume_array[z+1]]) / 255
+                    inputs.append(batch)
+                    target = cv2.resize(target_array[z], (self.s, self.s), interpolation=cv2.INTER_NEAREST) // 255
+                    targets.append(torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8))
         return inputs, targets
 
         

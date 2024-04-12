@@ -30,6 +30,7 @@ class Train():
         val_losses, val_dice_losses, val_jaccard_index = [], [], []
         net.train(True)
         best_jaccard = 0.0
+        best_net = None
 
         print('train')
         for epoch in range(1, self.n_epoch + 1):
@@ -74,7 +75,9 @@ class Train():
 
             if np.average(jaccard_) > best_jaccard:
                 best_jaccard = np.average(jaccard_)
+                best_net = net
                 torch.save(net, 'UNet3D.pth')
+                print('Best Epoch: ' + str(epoch) + ' JaccardIndex: ' + str(best_jaccard))
                 
         print('Train loss')
         print('DiceLoss: ' + str(np.average(dice_losses)))
@@ -83,7 +86,7 @@ class Train():
         print('Validation loss')
         print('DiceLoss: ' + str(np.average(val_dice_losses)))
         print('JaccardIndex: ' + str(np.average(val_jaccard_index)))
-        return net
+        return best_net
 
 
     def validation(self, epoch: int, net: nn.Module, validation_loader: DataLoader) -> tuple:
@@ -94,6 +97,8 @@ class Train():
         net.train(False)
         print('Validation')
         for data, target in validation_loader:
+            data = data.float()
+            target = target.float()
             if self.dev.type == 'cuda':
                 data = data.to(self.dev)
                 target = target.to(self.dev)
