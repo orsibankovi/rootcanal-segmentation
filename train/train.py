@@ -29,8 +29,8 @@ class Train():
         validation_loader = torch.utils.data.DataLoader(validationset, self.batch_size, shuffle=True)
         val_losses, val_dice_losses, val_jaccard_index = [], [], []
         net.train(True)
-        best_jaccard = 0.0
-        best_net = None
+        best_jaccard = 0.3
+        best_net = net
 
         print('train')
         for epoch in range(1, self.n_epoch + 1):
@@ -73,10 +73,9 @@ class Train():
             val_dice_losses += dice_
             val_jaccard_index += jaccard_
 
-            if np.average(jaccard_) > best_jaccard:
+            if np.average(jaccard_) >= best_jaccard:
                 best_jaccard = np.average(jaccard_)
                 best_net = net
-                torch.save(net, 'UNet3D.pth')
                 print('Best Epoch: ' + str(epoch) + ' JaccardIndex: ' + str(best_jaccard))
                 
         print('Train loss')
@@ -86,6 +85,7 @@ class Train():
         print('Validation loss')
         print('DiceLoss: ' + str(np.average(val_dice_losses)))
         print('JaccardIndex: ' + str(np.average(val_jaccard_index)))
+        torch.save(best_net, 'UNet3D.pth')
         return best_net
 
 

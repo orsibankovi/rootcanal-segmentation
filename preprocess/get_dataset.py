@@ -30,12 +30,16 @@ class GetDataset(Dataset):
         inputs = []
         targets = []
         for z, image in enumerate(volume_array):
-            if np.max(image) != 0 or z % 3 == 0:
-                if z != 0 and z != volume_array.shape[0] - 1:
-                    batch = self.create_batch([volume_array[z-1], volume_array[z], volume_array[z+1]]) / 255
-                    inputs.append(batch)
-                    target = cv2.resize(target_array[z], (self.s, self.s), interpolation=cv2.INTER_NEAREST) // 255
-                    targets.append(torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8))
+            if np.max(image) != 0 or z % 4 == 0:
+                s = volume_array.shape[0]
+                #if z not in [0, 1, s - 2, s - 1]:
+                temp_list = []
+                for i in range(0, 1):
+                    temp_list.append(volume_array[z + i])
+                batch = self.create_batch(temp_list) / 255
+                inputs.append(batch)
+                target = cv2.resize(target_array[z], (self.s, self.s), interpolation=cv2.INTER_NEAREST) // 255
+                targets.append(torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8))
         return inputs, targets
 
         

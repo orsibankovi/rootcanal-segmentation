@@ -32,8 +32,8 @@ class Test():
             'Euclidean dist': []
             }
         
-    def save_images(self, output_tensor: torch.Tensor, target_tensor: torch.Tensor, count: int) -> None:
-        tf_tn_img = metrics.tf_fn_draw(output_tensor.squeeze(1), target_tensor.squeeze(1))
+    def save_images(self, input: torch.Tensor, output_tensor: torch.Tensor, target_tensor: torch.Tensor, count: int) -> None:
+        tf_tn_img = metrics.tf_fn_draw(input[:, 2, :, :], output_tensor.squeeze(1), target_tensor.squeeze(1))
         tf_tn_img.save(self.results_dir + '/visualization/' + str(count) + '.png')
         
     def test(self) -> None:
@@ -52,12 +52,14 @@ class Test():
 
                 output = self.net(data)
                 loss = self.criterion(output, target)
-                #self.save_images(torch.round(output.cpu().data), target.cpu().data.int(), i)
+                #self.save_images(data.cpu().data, torch.round(output.cpu().data), target.cpu().data.int(), i)
                 
                 dice_loss_value = self.Dice(output, target.int())
                 jaccard_value = self.Jaccard(output, target.int())
 
-                e = metrics.centers_of_canals(torch.round(output.cpu().data), target.cpu().int())
+                e, outX, outY, targetX, targetY = metrics.centers_of_canals(torch.round(output.cpu().data), target.cpu().int())
+                metrics.draw_center_of_canal(data.cpu().data[:, 0, :, :], outX, outY, targetX, targetY).save(self.results_dir + '/visualization_roots/' + str(i) + '.png')
+                
                 self.results['BCE Loss'].append(loss.item())
                 self.results['Dice loss'].append(dice_loss_value.item())
                 self.results['Jaccard index'] += [jaccard_value.item()] \

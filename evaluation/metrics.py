@@ -4,12 +4,17 @@ from PIL import Image
 import math
 import numpy as np
 from torch import Tensor
+import ipyvolume as ipv
 
-def tf_fn_draw(output: Tensor, target: Tensor) -> Image:
+def tf_fn_draw(input: Tensor, output: Tensor, target: Tensor) -> Image:
     output = output > 0.5
     target = target > 0
     
     img = np.zeros((output.shape[1], output.shape[2], 3))
+    
+    img[:, :, 0] = input[0, :, :].cpu().numpy() * 255
+    img[:, :, 1] = input[0, :, :].cpu().numpy() * 255
+    img[:, :, 2] = input[0, :, :].cpu().numpy() * 255
 
     if torch.max(output) == 0 and torch.max(target) == 0:
         PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
@@ -20,11 +25,30 @@ def tf_fn_draw(output: Tensor, target: Tensor) -> Image:
             if target[0, i, j] == 0 and output[0, i, j] == 1:
                 img[i, j, 0] = 255
             elif target[0, i, j] == 1 and output[0, i, j] == 0:
-                img[i, j, 1] = 255
+                img[i, j, 2] = 255
             elif target[0, i, j] == 1 and output[0, i, j] == 1:
-                img[i, j, :] = 255
-            else:
-                img[i, j, :] = 0
+                img[i, j, 1] = 255
+
+    PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
+    return PIL_image
+
+
+def draw_center_of_canal(input: Tensor, outputX: list, outputY: list, targetX: list, targetY: list) -> Image:
+    img = np.zeros((input.shape[1], input.shape[2], 3))
+    
+    img[:, :, 0] = input[0, :, :].cpu().numpy() * 255
+    img[:, :, 1] = input[0, :, :].cpu().numpy() * 255
+    img[:, :, 2] = input[0, :, :].cpu().numpy() * 255
+
+    for i in range(len(outputX)):
+        img[outputY[i], outputX[i], 0] = 255
+    
+    for i in range(len(targetX)):
+        if img[targetY[i], targetX[i], 0] == 255 and img[targetY[i], targetX[i], 1] != 255:
+            img[targetY[i], targetX[i], 0] = 0
+            img[targetY[i], targetX[i], 1] = 255
+        else:
+            img[targetY[i], targetX[i], 2] = 255
 
     PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
     return PIL_image
@@ -59,7 +83,7 @@ def centers_of_canals(output_tensor: Tensor, target_tensor: Tensor) -> float:
     else:
         distances = 'nan'
 
-    return distances
+    return distances, output_x, output_y, target_x, target_y
 
 
 def find_min_dist(output_x: list, target_x: list, output_y: list, target_y: list) -> float:
