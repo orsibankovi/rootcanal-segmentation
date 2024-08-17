@@ -11,12 +11,11 @@ def tf_fn_draw(input: Tensor, output: Tensor, target: Tensor) -> Image:
     target = target > 0
     
     img = np.zeros((output.shape[1], output.shape[2], 3))
-    
-    img[:, :, 0] = input[0, :, :].cpu().numpy() * 255
-    img[:, :, 1] = input[0, :, :].cpu().numpy() * 255
-    img[:, :, 2] = input[0, :, :].cpu().numpy() * 255
 
-    if torch.max(output) == 0 and torch.max(target) == 0:
+    if torch.max(output) == 0 and torch.max(target) == 0:    
+        img[:, :, 0] = input[0, :, :].cpu().numpy() * 255
+        img[:, :, 1] = input[0, :, :].cpu().numpy() * 255
+        img[:, :, 2] = input[0, :, :].cpu().numpy() * 255
         PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
         return PIL_image
 
@@ -28,6 +27,10 @@ def tf_fn_draw(input: Tensor, output: Tensor, target: Tensor) -> Image:
                 img[i, j, 2] = 255
             elif target[0, i, j] == 1 and output[0, i, j] == 1:
                 img[i, j, 1] = 255
+            else:
+                img[i, j, 0] = input[0, i, j].cpu().numpy() * 255
+                img[i, j, 1] = input[0, i, j].cpu().numpy() * 255
+                img[i, j, 2] = input[0, i, j].cpu().numpy() * 255
 
     PIL_image = Image.fromarray(img.astype('uint8'), 'RGB')
     return PIL_image

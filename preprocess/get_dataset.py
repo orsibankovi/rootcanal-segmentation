@@ -30,9 +30,10 @@ class GetDataset(Dataset):
         inputs = []
         targets = []
         for z, image in enumerate(volume_array):
-            if np.max(image) != 0 or z % 4 == 0:
+            if np.max(image) != 0 or z % 1 == 0:
                 s = volume_array.shape[0]
                 #if z not in [0, 1, s - 2, s - 1]:
+                #if z not in [0, s - 1]:
                 temp_list = []
                 for i in range(0, 1):
                     temp_list.append(volume_array[z + i])

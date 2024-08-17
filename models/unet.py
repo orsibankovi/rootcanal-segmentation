@@ -6,8 +6,8 @@ from collections import OrderedDict
 class UNet(nn.Module):
     def __init__(self, in_channels: int = 3, out_channels: int = 1, init_features: int = 32):
         super(UNet, self).__init__()
-        self.preconv = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=1, padding=0, bias=False, groups=1)
-        self.encoder1 = UNet._block(1, init_features, name="enc1")
+        #self.preconv = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=1, padding=0, bias=False, groups=1)
+        self.encoder1 = UNet._block(in_channels, init_features, name="enc1")
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.encoder2 = UNet._block(init_features, init_features * 2, name="enc2")
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -33,7 +33,7 @@ class UNet(nn.Module):
         self.conv = nn.Conv2d(in_channels=init_features, out_channels=out_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.preconv(x)
+        #x = self.preconv(x)
         enc1 = self.encoder1(x)
         enc2 = self.encoder2(self.pool1(enc1))
         enc3 = self.encoder3(self.pool2(enc2))

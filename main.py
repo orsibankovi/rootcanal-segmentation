@@ -10,7 +10,7 @@ if __name__ == '__main__':
     dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     root_dir = 'C:/Users/orsolya.bankovi/Documents/Uni/rootcanal_segmentation'
     dataset_dir = root_dir + '/segmentation_all'
-    results_dir = root_dir + '/results_all_original'
+    results_dir = root_dir + '/results/all_ch_1'
     
     if Path(results_dir).exists() == False:
         Path(results_dir).mkdir()
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     if Path(results_dir + '/visualization_roots').exists() == False:
         Path(results_dir + '/visualization_roots').mkdir()
     
-    train_mode = True
+    train_mode = False
     
     if train_mode:
         train_set = dataset.GetDataset(dataset_dir + '/train')
