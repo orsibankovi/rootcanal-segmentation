@@ -5,6 +5,7 @@ import tifffile
 from os import listdir
 import numpy as np
 
+
 class GetDataset(Dataset):
     def __init__(self, input_path: str, s: int = 256):
         self.rootdir = input_path
@@ -12,19 +13,18 @@ class GetDataset(Dataset):
         self.targetfiles = []
         self.s = s
         self.load_images()
-        
-        
+
     def resize_image(self, image: np.ndarray) -> np.ndarray:
         return cv2.resize(image, (self.s, self.s), interpolation=cv2.INTER_LINEAR)
-       
-        
+
     def create_batch(self, image_list: list) -> torch.Tensor:
         for i, img in enumerate(image_list):
             image_list[i] = self.resize_image(img)
         return torch.tensor(np.stack(image_list, axis=0), dtype=torch.uint8)
 
-
-    def preprocessing(self, volume_array_path: str, target_array_path: str) -> tuple[list, list]:
+    def preprocessing(
+        self, volume_array_path: str, target_array_path: str
+    ) -> tuple[list, list]:
         volume_array = tifffile.imread(volume_array_path)
         target_array = tifffile.imread(target_array_path)
         inputs = []
@@ -32,31 +32,37 @@ class GetDataset(Dataset):
         for z, image in enumerate(volume_array):
             if np.max(image) != 0 or z % 1 == 0:
                 s = volume_array.shape[0]
-                #if z not in [0, 1, s - 2, s - 1]:
-                #if z not in [0, s - 1]:
+                # if z not in [0, 1, s - 2, s - 1]:
+                # if z not in [0, s - 1]:
                 temp_list = []
                 for i in range(0, 1):
                     temp_list.append(volume_array[z + i])
                 batch = self.create_batch(temp_list) / 255
                 inputs.append(batch)
-                target = cv2.resize(target_array[z], (self.s, self.s), interpolation=cv2.INTER_NEAREST) // 255
-                targets.append(torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8))
+                target = (
+                    cv2.resize(
+                        target_array[z],
+                        (self.s, self.s),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
+                    // 255
+                )
+                targets.append(
+                    torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8)
+                )
         return inputs, targets
 
-        
     def load_images(self):
         subfolders = listdir(self.rootdir)
         for subfolder in subfolders:
-            input_ = self.rootdir + '/' + subfolder + '/original.tiff'
-            target_ = self.rootdir + '/' + subfolder + '/inverse.tiff'
+            input_ = self.rootdir + "/" + subfolder + "/original.tiff"
+            target_ = self.rootdir + "/" + subfolder + "/inverse.tiff"
             volume_, mask_ = self.preprocessing(input_, target_)
             self.inputfiles += volume_
             self.targetfiles += mask_
-     
-        
+
     def __len__(self) -> int:
         return len(self.inputfiles)
-    
-    
+
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         return self.inputfiles[idx], self.targetfiles[idx]
