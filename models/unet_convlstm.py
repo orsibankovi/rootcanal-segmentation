@@ -12,7 +12,6 @@ class UNet2DConvLSTM(nn.Module):
     ):
         super(UNet2DConvLSTM, self).__init__()
         self.init_features = init_features
-        # self.preconv = nn.Conv2d(in_channels=in_channels, out_channels=1, kernel_size=1, padding=0, bias=False, groups=1)
         self.encoder1 = UNet2DConvLSTM._block(in_channels, init_features, name="enc1")
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.encoder2 = UNet2DConvLSTM._block(
@@ -67,10 +66,10 @@ class UNet2DConvLSTM(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        num_slices = x.shape[2]
+        num_slices = x.shape[1]
         enc1_seq, enc2_seq, enc3_seq, enc4_seq, bn_seq = [], [], [], [], []
         for t in range(num_slices):
-            enc1 = self.encoder1(x[:, :, t])
+            enc1 = self.encoder1(x[:, 1].unsqueeze(1))
             enc2 = self.encoder2(self.pool1(enc1))
             enc3 = self.encoder3(self.pool2(enc2))
             enc4 = self.encoder4(self.pool3(enc3))
@@ -103,9 +102,9 @@ class UNet2DConvLSTM(nn.Module):
             dec1 = self.upconv1(dec2)
             dec1 = torch.cat((dec1, enc1_seq[t]), dim=1)
             dec1 = self.decoder1(dec1)
-            outputs.append(torch.sigmoid(self.conv(dec1)).unsqueeze(2))
+            outputs.append(torch.sigmoid(self.conv(dec1)))
 
-        return torch.cat(outputs, dim=2)
+        return torch.cat(outputs, dim=1)
 
     @staticmethod
     def _block(in_channels: int, features: int, name: str):

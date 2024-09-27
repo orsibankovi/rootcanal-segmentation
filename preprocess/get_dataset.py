@@ -14,12 +14,12 @@ class GetDataset(Dataset):
         self.s = s
         self.load_images()
 
-    def resize_image(self, image: np.ndarray) -> np.ndarray:
-        return cv2.resize(image, (self.s, self.s), interpolation=cv2.INTER_LINEAR)
+    def resize_image(self, image: np.ndarray, interpolation) -> np.ndarray:
+        return cv2.resize(image, (self.s, self.s), interpolation=interpolation)
 
-    def create_batch(self, image_list: list) -> torch.Tensor:
+    def create_batch(self, image_list: list, interpolation) -> torch.Tensor:
         for i, img in enumerate(image_list):
-            image_list[i] = self.resize_image(img)
+            image_list[i] = self.resize_image(img, interpolation)
         return torch.tensor(np.stack(image_list, axis=0), dtype=torch.uint8)
 
     def preprocessing(
@@ -32,24 +32,18 @@ class GetDataset(Dataset):
         for z, image in enumerate(volume_array):
             if np.max(image) != 0 or z % 1 == 0:
                 s = volume_array.shape[0]
-                # if z not in [0, 1, s - 2, s - 1]:
-                # if z not in [0, s - 1]:
-                temp_list = []
-                for i in range(0, 1):
-                    temp_list.append(volume_array[z + i])
-                batch = self.create_batch(temp_list) / 255
-                inputs.append(batch)
-                target = (
-                    cv2.resize(
-                        target_array[z],
-                        (self.s, self.s),
-                        interpolation=cv2.INTER_NEAREST,
+                if z not in [0, 1, s - 2, s - 1]:
+                    temp_inp = []
+                    temp_target = []
+                    for i in range(-2, 3):
+                        temp_inp.append(volume_array[z + i])
+                        temp_target.append(target_array[z + i])
+                    batch_inp = self.create_batch(temp_inp, cv2.INTER_LINEAR) / 255
+                    inputs.append(batch_inp)
+                    batch_target = (
+                        self.create_batch(temp_target, cv2.INTER_NEAREST) // 255
                     )
-                    // 255
-                )
-                targets.append(
-                    torch.tensor(np.expand_dims(target, axis=0), dtype=torch.uint8)
-                )
+                    targets.append(batch_target)
         return inputs, targets
 
     def load_images(self):
