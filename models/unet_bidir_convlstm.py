@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 from collections import OrderedDict
-from torch import nn
-import torch
 from models.blocks import ConvLSTMCell2D
 
 
@@ -12,6 +10,8 @@ class UNet2DConvLSTM(nn.Module):
     ):
         super(UNet2DConvLSTM, self).__init__()
         self.init_features = init_features
+
+        # Encoder layers
         self.encoder1 = UNet2DConvLSTM._block(in_channels, init_features, name="enc1")
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.encoder2 = UNet2DConvLSTM._block(
@@ -27,31 +27,41 @@ class UNet2DConvLSTM(nn.Module):
         )
         self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)
 
+        # Bottleneck
         self.bottleneck = UNet2DConvLSTM._block(
             init_features * 8, init_features * 16, name="bottleneck"
         )
 
-        self.conv_lstm = ConvLSTMCell2D(16 * init_features, 16 * init_features, 3)
+        # ConvLSTM
+        self.conv_lstm = ConvLSTMCell2D(
+            16 * init_features, 16 * init_features, kernel_size=3
+        )
 
+        # 1x1 Conv to reduce channels after concatenation of LSTM states
+        self.reduce_channels = nn.Conv2d(
+            16 * init_features * 2, 16 * init_features, kernel_size=1
+        )
+
+        # Decoder layers
         self.upconv4 = nn.ConvTranspose2d(
             init_features * 16, init_features * 8, kernel_size=2, stride=2
         )
         self.decoder4 = UNet2DConvLSTM._block(
-            (init_features * 8) * 2, init_features * 8, name="dec4"
+            init_features * 16, init_features * 8, name="dec4"
         )
 
         self.upconv3 = nn.ConvTranspose2d(
             init_features * 8, init_features * 4, kernel_size=2, stride=2
         )
         self.decoder3 = UNet2DConvLSTM._block(
-            (init_features * 4) * 2, init_features * 4, name="dec3"
+            init_features * 8, init_features * 4, name="dec3"
         )
 
         self.upconv2 = nn.ConvTranspose2d(
             init_features * 4, init_features * 2, kernel_size=2, stride=2
         )
         self.decoder2 = UNet2DConvLSTM._block(
-            (init_features * 2) * 2, init_features * 2, name="dec2"
+            init_features * 4, init_features * 2, name="dec2"
         )
 
         self.upconv1 = nn.ConvTranspose2d(
@@ -67,28 +77,61 @@ class UNet2DConvLSTM(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         num_slices = x.shape[1]
-        h, c = self.conv_lstm.init_hidden((x.shape[0], 16 * self.init_features, 16, 16))
-        for t in range(num_slices):
-            enc1 = self.encoder1(x[:, t].unsqueeze(1))
-            enc2 = self.encoder2(self.pool1(enc1))
-            enc3 = self.encoder3(self.pool2(enc2))
-            enc4 = self.encoder4(self.pool3(enc3))
-            bottleneck = self.bottleneck(self.pool4(enc4))
 
-            h, c = self.conv_lstm(bottleneck, (h, c))
+        # Initialize LSTM hidden states
+        h_fwd, c_fwd = self.conv_lstm.init_hidden(
+            (x.shape[0], 16 * self.init_features, 16, 16)
+        )
+        h_bwd, c_bwd = self.conv_lstm.init_hidden(
+            (x.shape[0], 16 * self.init_features, 16, 16)
+        )
 
-        dec4 = self.upconv4(h)
-        dec4 = torch.cat((dec4, enc4), dim=1)
+        # Forward and Backward pass combined
+        for t in range(num_slices // 2 + 1):
+            slice_fwd = x[:, t].unsqueeze(1)  # Forward slice
+            slice_bwd = x[:, num_slices - 1 - t].unsqueeze(1)  # Backward slice
+
+            # Encoding forward
+            enc1_fwd = self.encoder1(slice_fwd)
+            enc2_fwd = self.encoder2(self.pool1(enc1_fwd))
+            enc3_fwd = self.encoder3(self.pool2(enc2_fwd))
+            enc4_fwd = self.encoder4(self.pool3(enc3_fwd))
+            bottleneck_fwd = self.bottleneck(self.pool4(enc4_fwd))
+
+            # Encoding backward
+            enc1_bwd = self.encoder1(slice_bwd)
+            enc2_bwd = self.encoder2(self.pool1(enc1_bwd))
+            enc3_bwd = self.encoder3(self.pool2(enc2_bwd))
+            enc4_bwd = self.encoder4(self.pool3(enc3_bwd))
+            bottleneck_bwd = self.bottleneck(self.pool4(enc4_bwd))
+
+            # ConvLSTM forward and backward
+            h_fwd, c_fwd = self.conv_lstm(bottleneck_fwd, (h_fwd, c_fwd))
+            h_bwd, c_bwd = self.conv_lstm(bottleneck_bwd, (h_bwd, c_bwd))
+
+        # Concatenate forward and backward LSTM outputs
+        h_combined = torch.cat([h_fwd, h_bwd], dim=1)
+
+        # Reduce channels back to the desired number
+        h_reduced = self.reduce_channels(h_combined)
+
+        # Decoder
+        dec4 = self.upconv4(h_reduced)
+        dec4 = torch.cat((dec4, enc4_fwd), dim=1)
         dec4 = self.decoder4(dec4)
+
         dec3 = self.upconv3(dec4)
-        dec3 = torch.cat((dec3, enc3), dim=1)
+        dec3 = torch.cat((dec3, enc3_fwd), dim=1)
         dec3 = self.decoder3(dec3)
+
         dec2 = self.upconv2(dec3)
-        dec2 = torch.cat((dec2, enc2), dim=1)
+        dec2 = torch.cat((dec2, enc2_fwd), dim=1)
         dec2 = self.decoder2(dec2)
+
         dec1 = self.upconv1(dec2)
-        dec1 = torch.cat((dec1, enc1), dim=1)
+        dec1 = torch.cat((dec1, enc1_fwd), dim=1)
         dec1 = self.decoder1(dec1)
+
         return torch.sigmoid(self.conv(dec1))
 
     @staticmethod
@@ -108,7 +151,6 @@ class UNet2DConvLSTM(nn.Module):
                     ),
                     (name + "norm1", nn.BatchNorm2d(num_features=features)),
                     (name + "relu1", nn.ReLU(inplace=True)),
-                    (name + "dropout1", nn.Dropout2d(p=0.15)),
                     (
                         name + "conv2",
                         nn.Conv2d(
